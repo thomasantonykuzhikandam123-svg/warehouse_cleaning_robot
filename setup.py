@@ -18,6 +18,8 @@ setup(
         # tells ROS2 to install all description files
         (os.path.join('share', package_name, 'description'),
             glob('description/*')),
+        (os.path.join('share', package_name, 'worlds'),
+            glob('worlds/*')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,

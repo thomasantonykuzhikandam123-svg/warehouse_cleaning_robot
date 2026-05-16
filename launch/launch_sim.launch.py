@@ -28,18 +28,22 @@ def generate_launch_description():
                 'launch', 'gz_sim.launch.py'
             )
         ]),
-        launch_arguments={'gz_args': '-r empty.sdf'}.items()
+        launch_arguments={'gz_args': '-r ' + os.path.join(
+        get_package_share_directory('warehouse_cleaning_robot'),
+        'worlds', 'warehouse.sdf')}.items()
     )
 
     spawn_entity = Node(
-        package='ros_gz_sim',
-        executable='create',
-        arguments=[
-            '-name', 'warehouse_robot',
-            '-topic', 'robot_description',
-            '-z', '0.01',
-        ],
-        output='screen'
+      package='ros_gz_sim',
+      executable='create',
+      arguments=[
+          '-name', 'warehouse_robot',
+          '-topic', 'robot_description',
+          '-x', '7.5',     # centred along width
+          '-y', '1.5',     # in open space, 1.5m from front wall
+          '-z', '0.01',
+      ],
+      output='screen'
     )
 
     bridge = Node(
