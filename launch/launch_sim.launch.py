@@ -39,8 +39,8 @@ def generate_launch_description():
       arguments=[
           '-name', 'warehouse_robot',
           '-topic', 'robot_description',
-          '-x', '7.5',     # centred along width
-          '-y', '1.5',     # in open space, 1.5m from front wall
+          '-x', '4.0',     # centred along width
+          '-y', '4.0',     # in open space, 1.5m from front wall
           '-z', '0.01',
       ],
       output='screen'
