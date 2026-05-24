@@ -1,0 +1,40 @@
+### EKF config — fuses wheel odometry (/odom) + IMU (/imu)
+### Output: /odometry/filtered, and the odom -> base_link transform
+
+ekf_filter_node:
+  ros__parameters:
+    frequency: 30.0
+    two_d_mode: true              # warehouse robot moves in 2D — simplifies & stabilises
+    publish_tf: true              # EKF publishes odom -> base_link (plugin no longer does)
+
+    map_frame: map
+    odom_frame: odom
+    base_link_frame: base_link
+    world_frame: odom             # we fuse to the odom frame (AMCL will handle map later)
+
+    use_sim_time: true
+
+    ## --- Source 1: wheel odometry ---
+    odom0: /odom
+    # which fields to use from /odom:
+    # [x, y, z, roll, pitch, yaw, vx, vy, vz, vroll, vpitch, vyaw, ax, ay, az]
+    odom0_config: [true,  true,  false,    # x, y position from wheels
+                   false, false, false,    # no roll/pitch/yaw from wheels (IMU does yaw)
+                   true,  false, false,    # forward velocity vx from wheels
+                   false, false, true,     # yaw rate from wheels (helps)
+                   false, false, false]
+    odom0_differential: false
+    odom0_relative: false
+    odom0_queue_size: 10
+
+    ## --- Source 2: IMU ---
+    imu0: /imu
+    imu0_config: [false, false, false,     # IMU not used for position
+                  false, false, true,      # YAW (heading) from IMU — its strength
+                  false, false, false,
+                  false, false, true,      # yaw rate from IMU
+                  false, false, false]     # not using linear accel (noisy, 2D mode)
+    imu0_differential: false
+    imu0_relative: false
+    imu0_queue_size: 10
+    imu0_remove_gravitational_acceleration: true

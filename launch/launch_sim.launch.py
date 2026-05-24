@@ -6,8 +6,9 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
 import xacro
 
-def generate_launch_description():
 
+
+def generate_launch_description():
     pkg = get_package_share_directory('warehouse_cleaning_robot')
     xacro_file = os.path.join(pkg, 'description', 'robot.urdf.xacro')
     robot_description = xacro.process_file(xacro_file).toxml()
@@ -29,21 +30,21 @@ def generate_launch_description():
             )
         ]),
         launch_arguments={'gz_args': '-r ' + os.path.join(
-        get_package_share_directory('warehouse_cleaning_robot'),
-        'worlds', 'warehouse.sdf')}.items()
+            get_package_share_directory('warehouse_cleaning_robot'),
+            'worlds', 'warehouse.sdf')}.items()
     )
 
     spawn_entity = Node(
-      package='ros_gz_sim',
-      executable='create',
-      arguments=[
-          '-name', 'warehouse_robot',
-          '-topic', 'robot_description',
-          '-x', '4.0',     # centred along width
-          '-y', '4.0',     # in open space, 1.5m from front wall
-          '-z', '0.01',
-      ],
-      output='screen'
+        package='ros_gz_sim',
+        executable='create',
+        arguments=[
+            '-name', 'warehouse_robot',
+            '-topic', 'robot_description',
+            '-x', '4.0',
+            '-y', '4.0',
+            '-z', '0.01',
+        ],
+        output='screen'
     )
 
     bridge = Node(
@@ -54,10 +55,25 @@ def generate_launch_description():
             '/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist',
             '/odom@nav_msgs/msg/Odometry[gz.msgs.Odometry',
             '/tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V',
-            '/joint_states@sensor_msgs/msg/JointState[gz.msgs.Model',
+            '/world/warehouse/model/warehouse_robot/joint_state@sensor_msgs/msg/JointState[gz.msgs.Model',
             '/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
+            '/imu@sensor_msgs/msg/Imu[gz.msgs.IMU',
+        ],
+        remappings=[
+            ('/world/warehouse/model/warehouse_robot/joint_state', '/joint_states'),
         ],
         output='screen'
+    )
+
+    ekf = Node(
+        package='robot_localization',
+        executable='ekf_node',
+        name='ekf_filter_node',
+        output='screen',
+        parameters=[
+            os.path.join(pkg, 'config', 'ekf.yaml'),
+            {'use_sim_time': True}
+        ]
     )
 
     return LaunchDescription([
@@ -65,4 +81,5 @@ def generate_launch_description():
         gazebo,
         spawn_entity,
         bridge,
+        ekf,
     ])

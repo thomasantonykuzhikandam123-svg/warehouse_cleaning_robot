@@ -7,22 +7,13 @@
   <xacro:property name="body_height"  value="0.2"/>
   <xacro:property name="wheel_radius" value="0.1"/>
   <xacro:property name="wheel_length" value="0.05"/>
-  <xacro:property name="wheel_x"      value="0.15"/>
-  <xacro:property name="wheel_y"      value="0.225"/>
+  <xacro:property name="wheel_x"      value="0.12"/>   <!-- short wheelbase: easier turning -->
+  <xacro:property name="wheel_y"      value="0.225"/>  <!-- half of separation 0.45 -->
 
   <!-- Materials -->
-  <material name="grey">
-    <color rgba="0.5 0.5 0.5 1"/>
-  </material>
-  <material name="blue">
-    <color rgba="0.1 0.1 0.8 1"/>
-  </material>
-  <material name="white">
-    <color rgba="1 1 1 1"/>
-  </material>
-  <material name="black">
-    <color rgba="0.1 0.1 0.1 1"/>
-  </material>
+  <material name="grey"><color rgba="0.5 0.5 0.5 1"/></material>
+  <material name="blue"><color rgba="0.1 0.1 0.8 1"/></material>
+  <material name="black"><color rgba="0.1 0.1 0.1 1"/></material>
 
   <!-- BASE LINK -->
   <link name="base_link"/>
@@ -37,16 +28,12 @@
   <link name="chassis">
     <visual>
       <origin xyz="0 0 0"/>
-      <geometry>
-        <box size="${body_length} ${body_width} ${body_height}"/>
-      </geometry>
+      <geometry><box size="${body_length} ${body_width} ${body_height}"/></geometry>
       <material name="grey"/>
     </visual>
     <collision>
       <origin xyz="0 0 0"/>
-      <geometry>
-        <box size="${body_length} ${body_width} ${body_height}"/>
-      </geometry>
+      <geometry><box size="${body_length} ${body_width} ${body_height}"/></geometry>
     </collision>
     <inertial>
       <mass value="5.0"/>
@@ -59,9 +46,9 @@
     </inertial>
   </link>
 
-  <!-- WHEEL MACRO -->
+  <!-- WHEEL MACRO — skid-steer tuned (low lateral friction) -->
   <xacro:macro name="wheel" params="name x y">
-    <joint name="base_${name}_joint" type="continuous">
+    <joint name="${name}_joint" type="continuous">
       <parent link="chassis"/>
       <child link="${name}_link"/>
       <origin xyz="${x} ${y} -${wheel_radius}" rpy="0 0 0"/>
@@ -70,29 +57,34 @@
     <link name="${name}_link">
       <visual>
         <origin xyz="0 0 0" rpy="1.5708 0 0"/>
-        <geometry>
-          <cylinder radius="${wheel_radius}" length="${wheel_length}"/>
-        </geometry>
-        <material name="blue"/>
+        <geometry><cylinder radius="${wheel_radius}" length="${wheel_length}"/></geometry>
+        <material name="black"/>
       </visual>
       <collision>
         <origin xyz="0 0 0" rpy="1.5708 0 0"/>
-        <geometry>
-          <cylinder radius="${wheel_radius}" length="${wheel_length}"/>
-        </geometry>
+        <geometry><cylinder radius="${wheel_radius}" length="${wheel_length}"/></geometry>
       </collision>
       <inertial>
         <mass value="0.5"/>
         <inertia
-           ixx="${(1/12) * 0.5 * (3*wheel_radius*wheel_radius+wheel_length*wheel_length)}"
+           ixx="${(1/12)*0.5*(3*wheel_radius*wheel_radius+wheel_length*wheel_length)}"
            ixy="0" ixz="0"
-           izz="${(1/2) * 0.5 * (wheel_radius*wheel_radius)}"
+           iyy="${(1/12)*0.5*(3*wheel_radius*wheel_radius+wheel_length*wheel_length)}"
            iyz="0"
-           iyy="${(1/12) * 0.5 * (3*wheel_radius*wheel_radius+wheel_length*wheel_length)}"/>
+           izz="${(1/2)*0.5*(wheel_radius*wheel_radius)}"/>
       </inertial>
     </link>
+    <!-- KEY: mu1 high (drive grip), mu2 ZERO (free sideways slip for skid-steer) -->
+    <gazebo reference="${name}_link">
+      <mu1>1.0</mu1>
+      <mu2>0.0</mu2>
+      <kp>1000000.0</kp>
+      <kd>100.0</kd>
+      <fdir1>1 0 0</fdir1>
+    </gazebo>
   </xacro:macro>
 
+  <!-- Four driven wheels at the corners -->
   <xacro:wheel name="left_front_wheel"  x="${wheel_x}"  y="${wheel_y}"/>
   <xacro:wheel name="left_back_wheel"   x="-${wheel_x}" y="${wheel_y}"/>
   <xacro:wheel name="right_front_wheel" x="${wheel_x}"  y="-${wheel_y}"/>
@@ -107,24 +99,18 @@
 
   <link name="lidar_link">
     <visual>
-      <geometry>
-        <cylinder radius="0.05" length="0.04"/>
-      </geometry>
+      <geometry><cylinder radius="0.05" length="0.04"/></geometry>
       <material name="black"/>
     </visual>
     <collision>
-      <geometry>
-        <cylinder radius="0.05" length="0.04"/>
-      </geometry>
+      <geometry><cylinder radius="0.05" length="0.04"/></geometry>
     </collision>
     <inertial>
       <mass value="0.1"/>
-      <inertia ixx="0.001" ixy="0" ixz="0"
-               iyy="0.001" iyz="0" izz="0.001"/>
+      <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>
     </inertial>
   </link>
 
-  <!-- LIDAR SENSOR (Gazebo Fortress) -->
   <gazebo reference="lidar_link">
     <sensor name="lidar_sensor" type="gpu_lidar">
       <topic>scan</topic>
@@ -149,16 +135,31 @@
       <gz_frame_id>lidar_link</gz_frame_id>
     </sensor>
   </gazebo>
+  <!-- IMU SENSOR -->
+  <gazebo reference="chassis">
+    <sensor name="imu_sensor" type="imu">
+      <topic>imu</topic>
+      <update_rate>50</update_rate>
+      <always_on>true</always_on>
+      <gz_frame_id>chassis</gz_frame_id>
+    </sensor>
+  </gazebo>
 
-  <!-- DIFF DRIVE PLUGIN -->
+  <!-- IMU SYSTEM PLUGIN — required for IMU to publish -->
   <gazebo>
-    <plugin
-       filename="ignition-gazebo-diff-drive-system"
-       name="ignition::gazebo::systems::DiffDrive">
-       <left_joint>base_left_front_wheel_joint</left_joint>
-       <left_joint>base_left_back_wheel_joint</left_joint>
-       <right_joint>base_right_front_wheel_joint</right_joint>
-       <right_joint>base_right_back_wheel_joint</right_joint>
+    <plugin filename="ignition-gazebo-imu-system"
+            name="ignition::gazebo::systems::Imu">
+    </plugin>
+  </gazebo>
+
+  <!-- DIFF DRIVE — all 4 wheels (2 left, 2 right) -->
+  <gazebo>
+    <plugin filename="ignition-gazebo-diff-drive-system"
+            name="ignition::gazebo::systems::DiffDrive">
+       <left_joint>left_front_wheel_joint</left_joint>
+       <left_joint>left_back_wheel_joint</left_joint>
+       <right_joint>right_front_wheel_joint</right_joint>
+       <right_joint>right_back_wheel_joint</right_joint>
        <wheel_separation>0.45</wheel_separation>
        <wheel_radius>${wheel_radius}</wheel_radius>
        <topic>/cmd_vel</topic>
@@ -166,15 +167,21 @@
        <frame_id>odom</frame_id>
        <child_frame_id>base_link</child_frame_id>
        <publish_odom>true</publish_odom>
-       <publish_odom_tf>true</publish_odom_tf>
+       <publish_odom_tf>false</publish_odom_tf>
     </plugin>
   </gazebo>
 
-  <!-- SENSORS SYSTEM PLUGIN — required for lidar to publish data -->
+  <!-- JOINT STATE PUBLISHER — makes Gazebo publish wheel joint states -->
   <gazebo>
-    <plugin
-       filename="ignition-gazebo-sensors-system"
-       name="ignition::gazebo::systems::Sensors">
+    <plugin filename="ignition-gazebo-joint-state-publisher-system"
+            name="ignition::gazebo::systems::JointStatePublisher">
+    </plugin>
+  </gazebo>
+
+  <!-- SENSORS SYSTEM PLUGIN -->
+  <gazebo>
+    <plugin filename="ignition-gazebo-sensors-system"
+            name="ignition::gazebo::systems::Sensors">
        <render_engine>ogre2</render_engine>
     </plugin>
   </gazebo>
